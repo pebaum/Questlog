@@ -2,8 +2,15 @@ import { ipcMain, Menu, dialog } from 'electron'
 import * as questRepo from './data/quest-repo'
 import * as domainRepo from './data/domain-repo'
 import { importFromObsidian } from './data/importer'
+import { writeQuestToMarkdown, deleteQuestMarkdown } from './data/md-writer'
+import { startFileWatcher } from './data/file-watcher'
 import { getSettings, saveSettings } from './data/settings'
 import { getMainWindow, getOverlayWindow, toggleOverlay } from './window-manager'
+
+function getQuestIdForObjective(objId: string): string | null {
+  const obj = questRepo.getObjectiveParent(objId)
+  return obj || null
+}
 
 export function registerIpcHandlers(): void {
   // Quests
@@ -37,12 +44,12 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('quests:create', (_e, data) => {
     const quest = questRepo.createQuest(data)
+    writeQuestToMarkdown(quest.id)
     broadcastUpdate()
     return { ...quest, active: !!quest.active, objectives: [] }
   })
 
   ipcMain.handle('quests:update', (_e, id: string, data) => {
-    // Enforce max 5 active
     if (data.active === true) {
       const currentCount = questRepo.getActiveCount()
       const existing = questRepo.getQuestById(id)
@@ -51,6 +58,7 @@ export function registerIpcHandlers(): void {
       }
     }
     const quest = questRepo.updateQuest(id, data)
+    if (quest) writeQuestToMarkdown(id)
     broadcastUpdate()
     if (!quest) return null
     return {
@@ -61,6 +69,7 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('quests:delete', (_e, id: string) => {
+    deleteQuestMarkdown(id)
     questRepo.deleteQuest(id)
     broadcastUpdate()
     return true
@@ -69,46 +78,44 @@ export function registerIpcHandlers(): void {
   // Objectives
   ipcMain.handle('objectives:create', (_e, questId: string, text: string) => {
     const obj = questRepo.createObjective(questId, text)
+    writeQuestToMarkdown(questId)
     broadcastUpdate()
     return { ...obj, completed: !!obj.completed }
   })
 
   ipcMain.handle('objectives:update', (_e, id: string, data) => {
+    const questId = getQuestIdForObjective(id)
     questRepo.updateObjective(id, data)
+    if (questId) writeQuestToMarkdown(questId)
     broadcastUpdate()
     return true
   })
 
   ipcMain.handle('objectives:delete', (_e, id: string) => {
+    const questId = getQuestIdForObjective(id)
     questRepo.deleteObjective(id)
+    if (questId) writeQuestToMarkdown(questId)
     broadcastUpdate()
     return true
   })
 
   ipcMain.handle('objectives:reorder', (_e, questId: string, orderedIds: string[]) => {
     questRepo.reorderObjectives(questId, orderedIds)
+    writeQuestToMarkdown(questId)
     broadcastUpdate()
     return true
   })
 
   // Domains
-  ipcMain.handle('domains:getAll', () => {
-    return domainRepo.getAllDomains()
-  })
-
-  ipcMain.handle('domains:create', (_e, name: string, color: string) => {
-    return domainRepo.getOrCreateDomain(name, color)
-  })
-
+  ipcMain.handle('domains:getAll', () => domainRepo.getAllDomains())
+  ipcMain.handle('domains:create', (_e, name: string, color: string) => domainRepo.getOrCreateDomain(name, color))
   ipcMain.handle('domains:update', (_e, id: string, name: string, color: string) => {
     domainRepo.updateDomain(id, name, color)
     return true
   })
 
   // Import
-  ipcMain.handle('import:obsidian', (_e, dir: string) => {
-    return importFromObsidian(dir)
-  })
+  ipcMain.handle('import:obsidian', (_e, dir: string) => importFromObsidian(dir))
 
   ipcMain.handle('import:pickFolder', async () => {
     const main = getMainWindow()
@@ -121,6 +128,7 @@ export function registerIpcHandlers(): void {
     const folder = result.filePaths[0]
     saveSettings({ importFolder: folder })
     const importResult = importFromObsidian(folder)
+    startFileWatcher(folder)
     broadcastUpdate()
     return { folder, ...importResult }
   })
@@ -129,41 +137,24 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('settings:save', (_e, settings) => saveSettings(settings))
 
   // Overlay
-  ipcMain.handle('overlay:toggle', () => {
-    toggleOverlay()
-    return true
-  })
-
+  ipcMain.handle('overlay:toggle', () => { toggleOverlay(); return true })
   ipcMain.handle('overlay:close', () => {
     const overlay = getOverlayWindow()
-    if (overlay && !overlay.isDestroyed()) {
-      overlay.close()
-    }
+    if (overlay && !overlay.isDestroyed()) overlay.close()
     return true
   })
-
   ipcMain.handle('overlay:contextmenu', () => {
     const overlay = getOverlayWindow()
     if (!overlay || overlay.isDestroyed()) return
-    const menu = Menu.buildFromTemplate([
-      {
-        label: 'Close Duty List',
-        click: () => {
-          if (overlay && !overlay.isDestroyed()) overlay.close()
-        }
-      }
-    ])
-    menu.popup({ window: overlay })
+    Menu.buildFromTemplate([{
+      label: 'Close Duty List',
+      click: () => { if (overlay && !overlay.isDestroyed()) overlay.close() }
+    }]).popup({ window: overlay })
   })
 }
 
 function broadcastUpdate(): void {
-  const main = getMainWindow()
-  const overlay = getOverlayWindow()
-  if (main && !main.isDestroyed()) {
-    main.webContents.send('quests:updated')
-  }
-  if (overlay && !overlay.isDestroyed()) {
-    overlay.webContents.send('quests:updated')
+  for (const win of require('electron').BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send('quests:updated')
   }
 }

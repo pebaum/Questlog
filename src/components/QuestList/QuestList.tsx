@@ -178,6 +178,7 @@ export default function QuestList() {
       <div className="quest-list-header">
         <span className="quest-list-title">Quests</span>
         <div className="quest-list-header-actions">
+          <button className="btn" onClick={async () => { await window.questApi.pickImportFolder() }} title="Import from folder">{'\uD83D\uDCC1'}</button>
           <button className="btn" onClick={() => setShowNewDomain(!showNewDomain)}>+ Domain</button>
           <button className="btn btn-primary" onClick={() => setShowNewQuest(!showNewQuest)}>+ Quest</button>
         </div>

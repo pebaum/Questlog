@@ -18,6 +18,10 @@ interface QuestApi {
   updateDomain(id: string, name: string, color: string): Promise<boolean>
 
   importObsidian(dir: string): Promise<{ imported: number; skipped: number }>
+  pickImportFolder(): Promise<{ folder: string; imported: number; skipped: number } | null>
+
+  getSettings(): Promise<{ importFolder: string | null }>
+  saveSettings(settings: Record<string, unknown>): Promise<unknown>
 
   toggleOverlay(): Promise<boolean>
   closeOverlay(): Promise<boolean>

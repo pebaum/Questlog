@@ -179,6 +179,11 @@ export function deleteObjective(id: string): void {
   saveDb()
 }
 
+export function getObjectiveParent(id: string): string | undefined {
+  const obj = queryOne<{ quest_id: string }>('SELECT quest_id FROM objectives WHERE id = ?', [id])
+  return obj?.quest_id
+}
+
 export function reorderObjectives(questId: string, orderedIds: string[]): void {
   orderedIds.forEach((id, index) => {
     run('UPDATE objectives SET sort_order = ? WHERE id = ? AND quest_id = ?', [index, id, questId])
