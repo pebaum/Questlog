@@ -1,0 +1,119 @@
+.quest-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.quest-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.quest-list-header-actions { display: flex; gap: 6px; }
+.quest-list-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+
+.quest-list-new {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.quest-list-new-row { display: flex; gap: 8px; align-items: center; }
+.quest-list-color-picker {
+  width: 30px; height: 30px;
+  border: 1px solid var(--border); background: none; cursor: pointer; padding: 0; border-radius: var(--radius-sm);
+}
+.quest-list-new-actions { display: flex; gap: 8px; }
+
+/* Filters */
+.quest-filters {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.quest-filters-search { width: 100%; font-size: 12px; padding: 5px 8px; }
+.quest-filters-row { display: flex; gap: 6px; }
+.quest-filters-select { flex: 1; font-size: 12px; padding: 4px 6px; }
+.quest-filters-toggles { display: flex; gap: 12px; }
+.quest-filters-toggle {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 12px; color: var(--text-secondary); cursor: pointer;
+}
+.quest-filters-toggle input { accent-color: var(--accent); }
+
+/* List body */
+.quest-list-body { flex: 1; overflow-y: auto; }
+.quest-list-empty { padding: 40px 16px; text-align: center; color: var(--text-muted); }
+
+/* Domain groups */
+.quest-group-header {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 7px 16px;
+  background: var(--bg-raised); border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-ui); font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: background 0.1s;
+}
+.quest-group-header:hover { background: var(--bg-hover); }
+.quest-group-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.quest-group-name { flex: 1; text-align: left; }
+.quest-group-count { color: var(--text-muted); font-size: 11px; }
+.quest-group-chevron { font-size: 10px; transition: transform 0.15s; }
+.quest-group-chevron.collapsed { transform: rotate(-90deg); }
+
+.quest-group-drop { min-height: 4px; transition: all 0.15s; }
+.quest-group-drop--over {
+  background: rgba(110, 168, 224, 0.06);
+  outline: 1px dashed var(--accent-dim);
+  outline-offset: -1px;
+  border-radius: var(--radius-sm);
+}
+.quest-group-drop-label {
+  padding: 4px 16px;
+  font-size: 11px;
+  color: var(--accent);
+}
+
+/* Quest items */
+.quest-item {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 7px 16px 7px 22px;
+  background: transparent; border: none;
+  border-left: 2px solid transparent;
+  color: var(--text-primary); text-align: left;
+  cursor: pointer; transition: background 0.1s;
+  font-size: 13px;
+}
+.quest-item:hover { background: var(--bg-hover); }
+.quest-item--selected { background: var(--bg-active); border-left-color: var(--accent); }
+.quest-item--dragging { opacity: 0.25; }
+.quest-item--overlay {
+  background: var(--bg-raised); border: 1px solid var(--accent-dim);
+  border-radius: var(--radius-sm); padding: 7px 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  display: flex; align-items: center; gap: 8px;
+}
+
+.quest-item-active-check {
+  background: none; border: none;
+  color: var(--text-muted); font-size: 15px;
+  cursor: pointer; padding: 0; line-height: 1;
+  flex-shrink: 0; transition: color 0.1s;
+}
+.quest-item-active-check:hover { color: var(--accent); }
+.quest-item-active-check--on { color: var(--green); }
+
+.quest-item-priority {
+  font-size: 10px; font-weight: 700;
+  flex-shrink: 0; width: 12px; text-align: center;
+}
+
+.quest-item-content {
+  display: flex; align-items: center; gap: 6px;
+  flex: 1; min-width: 0; cursor: grab;
+}
+.quest-item-title {
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.quest-item-waiting { font-size: 11px; opacity: 0.5; }

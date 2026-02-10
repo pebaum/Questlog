@@ -1,0 +1,31 @@
+/// <reference types="vite/client" />
+
+interface QuestApi {
+  getQuests(): Promise<import('./types/quest').QuestWithObjectives[]>
+  getQuestById(id: string): Promise<import('./types/quest').QuestWithObjectives | null>
+  getActiveQuests(): Promise<import('./types/quest').QuestWithObjectives[]>
+  createQuest(data: Partial<import('./types/quest').Quest>): Promise<import('./types/quest').QuestWithObjectives>
+  updateQuest(id: string, data: Partial<import('./types/quest').Quest>): Promise<import('./types/quest').QuestWithObjectives | { error: string } | null>
+  deleteQuest(id: string): Promise<boolean>
+
+  createObjective(questId: string, text: string): Promise<import('./types/quest').Objective>
+  updateObjective(id: string, data: Partial<import('./types/quest').Objective>): Promise<boolean>
+  deleteObjective(id: string): Promise<boolean>
+  reorderObjectives(questId: string, orderedIds: string[]): Promise<boolean>
+
+  getDomains(): Promise<import('./types/quest').Domain[]>
+  createDomain(name: string, color: string): Promise<import('./types/quest').Domain>
+  updateDomain(id: string, name: string, color: string): Promise<boolean>
+
+  importObsidian(dir: string): Promise<{ imported: number; skipped: number }>
+
+  toggleOverlay(): Promise<boolean>
+  closeOverlay(): Promise<boolean>
+  showOverlayContextMenu(): Promise<void>
+
+  onQuestsUpdated(callback: () => void): () => void
+}
+
+interface Window {
+  questApi: QuestApi
+}

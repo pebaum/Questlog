@@ -1,0 +1,19 @@
+.app-layout {
+  display: flex;
+  height: 100vh;
+  background: var(--bg-base);
+}
+
+.app-sidebar {
+  width: 50%;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+}
+
+.app-detail {
+  width: 50%;
+  overflow-y: auto;
+  background: var(--bg-base);
+}
