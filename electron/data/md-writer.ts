@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import matter from 'gray-matter'
 import { getDb } from './db'
-import { markRecentWrite } from './file-watcher'
+import { setContentHash, md5 } from './file-watcher'
 import { getSettings } from './settings'
 
 interface QuestForExport {
@@ -59,21 +59,20 @@ export function writeQuestToMarkdown(questId: string): void {
   const domainName = getDomainName(quest.domain)
   const objectives = getObjectives(questId)
 
-  // Build frontmatter
+  // Build frontmatter (omit undefined values — js-yaml cannot serialize them)
   const frontmatter: Record<string, unknown> = {
-    domain: domainName || undefined,
+    domain: domainName || null,
     quick: false,
-    next_action: undefined,
-    waiting_for: quest.waiting_for || undefined,
     active: !!quest.active,
     priority: quest.priority
   }
+  if (quest.waiting_for) frontmatter.waiting_for = quest.waiting_for
 
   // Build content
   let content = ''
 
-  // Quest Log section
-  content += '\n## Quest Log\n\n'
+  // QuestLog section
+  content += '\n## QuestLog\n\n'
   if (quest.goal) {
     content += `- ${new Date().toISOString().split('T')[0]}: ${quest.goal}\n`
   }
@@ -97,8 +96,8 @@ export function writeQuestToMarkdown(questId: string): void {
   // Determine file path
   const filePath = quest.source_file || path.join(settings.importFolder, `${quest.title}.md`)
 
-  // Mark as recent write to prevent watcher loop
-  markRecentWrite(filePath)
+  // Store content hash so the file watcher knows this was our write
+  setContentHash(filePath, md5(md))
 
   fs.writeFileSync(filePath, md, 'utf-8')
 
@@ -117,7 +116,6 @@ export function deleteQuestMarkdown(questId: string): void {
   stmt.free()
 
   if (row.source_file && fs.existsSync(row.source_file)) {
-    markRecentWrite(row.source_file)
     fs.unlinkSync(row.source_file)
   }
 }

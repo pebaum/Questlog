@@ -1,6 +1,6 @@
-# Questlog
+# QuestLog
 
-A desktop quest log app for task and project management. Organize your life like an RPG — track quests, objectives, and priorities across domains.
+A desktop QuestLog app for task and project management. Organize your life like an RPG — track quests, objectives, and priorities across domains.
 
 ## Features
 

@@ -6,6 +6,7 @@ import { registerIpcHandlers } from './ipc-handlers'
 import { importFromObsidian } from './data/importer'
 import { startFileWatcher, stopFileWatcher } from './data/file-watcher'
 import { getSettings } from './data/settings'
+import { initAutoUpdater } from './auto-updater'
 
 app.whenReady().then(async () => {
   await initDb()
@@ -29,6 +30,10 @@ app.whenReady().then(async () => {
   createOverlayWindow()
 
   globalShortcut.register('CommandOrControl+Shift+Q', toggleOverlay)
+
+  if (app.isPackaged) {
+    initAutoUpdater()
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

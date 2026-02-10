@@ -59,10 +59,6 @@ export function getActiveQuests(): QuestRow[] {
   return queryAll<QuestRow>('SELECT * FROM quests WHERE active = 1 AND completed_at IS NULL ORDER BY priority DESC')
 }
 
-export function getActiveCount(): number {
-  const row = queryOne<{ count: number }>('SELECT COUNT(*) as count FROM quests WHERE active = 1 AND completed_at IS NULL')
-  return row?.count ?? 0
-}
 
 export function createQuest(data: {
   title: string

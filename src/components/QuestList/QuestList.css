@@ -45,6 +45,19 @@
 /* List body */
 .quest-list-body { flex: 1; overflow-y: auto; }
 .quest-list-empty { padding: 40px 16px; text-align: center; color: var(--text-muted); }
+.quest-list-empty--first {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 60px 16px;
+}
+.quest-list-empty-title {
+  font-size: 15px; font-weight: 600; color: var(--text-secondary);
+}
+.quest-list-empty-desc {
+  font-size: 12px; color: var(--text-muted);
+}
+.quest-list-empty-btn {
+  margin-top: 6px; padding: 8px 20px; font-size: 13px;
+}
 
 /* Domain groups */
 .quest-group-header {
@@ -61,6 +74,53 @@
 .quest-group-count { color: var(--text-muted); font-size: 11px; }
 .quest-group-chevron { font-size: 10px; transition: transform 0.15s; }
 .quest-group-chevron.collapsed { transform: rotate(-90deg); }
+
+/* Domain header row with actions */
+.quest-group-header-row {
+  display: flex; align-items: center; position: relative;
+}
+.quest-group-header-row .quest-group-header { flex: 1; }
+.quest-group-actions {
+  display: flex; gap: 2px; padding-right: 8px;
+  opacity: 0.3; transition: opacity 0.15s;
+}
+.quest-group-header-row:hover .quest-group-actions { opacity: 1; }
+.quest-group-action-btn {
+  background: none; border: none; color: var(--text-muted);
+  font-size: 12px; cursor: pointer; padding: 2px 5px;
+  border-radius: var(--radius-sm); line-height: 1;
+  transition: color 0.1s, background 0.1s;
+}
+.quest-group-action-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+.quest-group-action-btn--delete:hover { color: var(--red); }
+
+/* Inline rename input */
+.quest-group-header--editing {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 16px;
+  background: var(--bg-raised);
+}
+.quest-group-rename-input {
+  flex: 1; background: var(--bg-input); border: 1px solid var(--accent-dim);
+  color: var(--text-primary); font-size: 12px; font-family: var(--font-ui);
+  padding: 3px 8px; border-radius: var(--radius-sm); outline: none;
+}
+.quest-group-rename-input:focus { border-color: var(--accent); }
+
+/* Delete confirmation */
+.quest-group-confirm-delete {
+  padding: 8px 16px; background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px; color: var(--text-secondary);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.quest-group-confirm-actions { display: flex; gap: 6px; }
+.btn-danger {
+  background: var(--red); color: #fff; border: none;
+  padding: 3px 10px; border-radius: var(--radius-sm);
+  font-size: 12px; cursor: pointer;
+}
+.btn-danger:hover { opacity: 0.85; }
 
 .quest-group-drop { min-height: 4px; transition: all 0.15s; }
 .quest-group-drop--over {

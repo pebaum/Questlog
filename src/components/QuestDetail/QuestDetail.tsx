@@ -3,6 +3,11 @@ import { useQuestStore } from '../../store/questStore'
 import ObjectiveList from './ObjectiveList'
 import './QuestDetail.css'
 
+const formatDate = (iso: string): string => {
+  const date = new Date(iso)
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date)
+}
+
 const PRIORITY_OPTIONS = [
   { value: 0, label: 'None' },
   { value: 1, label: 'Low', color: 'var(--text-muted)' },
@@ -179,6 +184,13 @@ export default function QuestDetail() {
           {quest.completed_at ? 'Reopen' : '\u2713 Complete'}
         </button>
         <button className="btn btn-danger" onClick={handleDelete}>Delete</button>
+      </div>
+
+      <div className="detail-timestamps">
+        <span>Created: {formatDate(quest.created_at)}</span>
+        {quest.updated_at !== quest.created_at && (
+          <span>Updated: {formatDate(quest.updated_at)}</span>
+        )}
       </div>
     </div>
   )

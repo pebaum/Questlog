@@ -17,6 +17,11 @@ interface QuestStore {
   setShowCompleted: (show: boolean) => void
   setSort: (field: SortField, direction?: SortDirection) => void
 
+  // Domain management
+  updateDomain: (id: string, data: { name?: string; color?: string; sort_order?: number }) => Promise<void>
+  deleteDomain: (id: string) => Promise<void>
+  reorderDomains: (orderedIds: string[]) => Promise<void>
+
   // Derived
   filteredQuests: () => QuestWithObjectives[]
   selectedQuest: () => QuestWithObjectives | null
@@ -60,6 +65,26 @@ export const useQuestStore = create<QuestStore>((set, get) => ({
       sortDirection: direction ?? (s.filters.sortField === field && s.filters.sortDirection === 'asc' ? 'desc' : 'asc')
     }
   })),
+
+  updateDomain: async (id, data) => {
+    await window.questApi.updateDomain(id, data)
+    const domains = await window.questApi.getDomains()
+    const quests = await window.questApi.getQuests()
+    set({ domains, quests })
+  },
+
+  deleteDomain: async (id) => {
+    await window.questApi.deleteDomain(id)
+    const domains = await window.questApi.getDomains()
+    const quests = await window.questApi.getQuests()
+    set({ domains, quests })
+  },
+
+  reorderDomains: async (orderedIds) => {
+    await window.questApi.reorderDomains(orderedIds)
+    const domains = await window.questApi.getDomains()
+    set({ domains })
+  },
 
   filteredQuests: () => {
     const { quests, filters, domains } = get()

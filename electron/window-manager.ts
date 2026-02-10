@@ -21,7 +21,7 @@ export function createMainWindow(): BrowserWindow {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#1a1410',
-    title: 'Quest Log',
+    title: 'QuestLog',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false

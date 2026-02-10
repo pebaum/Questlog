@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import crypto from 'node:crypto'
 import matter from 'gray-matter'
 import { getDb, saveDb } from './db'
 import { getOrCreateDomain } from './domain-repo'
@@ -9,12 +10,15 @@ let watcher: fs.FSWatcher | null = null
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 let watchingDir: string | null = null
 
-// Prevent write-back loops: track files we just wrote
-const recentWrites = new Set<string>()
+// Prevent write-back loops: track MD5 hashes of file content we wrote
+const contentHashes = new Map<string, string>()
 
-export function markRecentWrite(filePath: string): void {
-  recentWrites.add(filePath)
-  setTimeout(() => recentWrites.delete(filePath), 2000)
+export function setContentHash(filePath: string, hash: string): void {
+  contentHashes.set(filePath, hash)
+}
+
+export function md5(content: string): string {
+  return crypto.createHash('md5').update(content).digest('hex')
 }
 
 function broadcastUpdate(): void {
@@ -27,10 +31,15 @@ function broadcastUpdate(): void {
 
 function syncFileToDb(filePath: string): void {
   if (!filePath.endsWith('.md')) return
-  if (recentWrites.has(filePath)) return
 
   try {
     const raw = fs.readFileSync(filePath, 'utf-8')
+
+    // Compare content hash to detect our own writes
+    const hash = md5(raw)
+    if (contentHashes.get(filePath) === hash) return
+    contentHashes.set(filePath, hash)
+
     const { data, content } = matter(raw)
     const fm = data as {
       domain?: string
@@ -52,7 +61,7 @@ function syncFileToDb(filePath: string): void {
     // Parse content
     let goal = ''
     let description = ''
-    const logMatch = content.match(/## Quest Log\s*\n([\s\S]*?)(?=\n## |\n*$)/)
+    const logMatch = content.match(/## (?:Quest Log|QuestLog)\s*\n([\s\S]*?)(?=\n## |\n*$)/)
     if (logMatch) {
       const logLines = logMatch[1].trim().split('\n').filter(l => l.trim())
       if (logLines.length > 0) {

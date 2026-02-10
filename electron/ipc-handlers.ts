@@ -1,4 +1,6 @@
 import { ipcMain, Menu, dialog } from 'electron'
+import fs from 'fs'
+import path from 'path'
 import * as questRepo from './data/quest-repo'
 import * as domainRepo from './data/domain-repo'
 import { importFromObsidian } from './data/importer'
@@ -50,13 +52,6 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('quests:update', (_e, id: string, data) => {
-    if (data.active === true) {
-      const currentCount = questRepo.getActiveCount()
-      const existing = questRepo.getQuestById(id)
-      if (existing && !existing.active && currentCount >= 5) {
-        return { error: 'Maximum 5 active quests allowed' }
-      }
-    }
     const quest = questRepo.updateQuest(id, data)
     if (quest) writeQuestToMarkdown(id)
     broadcastUpdate()
@@ -108,9 +103,38 @@ export function registerIpcHandlers(): void {
 
   // Domains
   ipcMain.handle('domains:getAll', () => domainRepo.getAllDomains())
-  ipcMain.handle('domains:create', (_e, name: string, color: string) => domainRepo.getOrCreateDomain(name, color))
-  ipcMain.handle('domains:update', (_e, id: string, name: string, color: string) => {
-    domainRepo.updateDomain(id, name, color)
+  ipcMain.handle('domains:create', (_e, name: string, color: string) => {
+    const domain = domainRepo.getOrCreateDomain(name, color)
+    broadcastUpdate()
+    return domain
+  })
+  ipcMain.handle('domains:update', (_e, id: string, data: { name?: string; color?: string; sort_order?: number }) => {
+    const oldDomain = domainRepo.getDomainById(id)
+    const oldName = oldDomain?.name
+    domainRepo.updateDomain(id, data)
+    // If domain was renamed, update markdown files for all quests in this domain
+    if (data.name && oldName && data.name !== oldName) {
+      const questIds = domainRepo.getQuestsByDomainId(id)
+      for (const q of questIds) {
+        writeQuestToMarkdown(q.id)
+      }
+    }
+    broadcastUpdate()
+    return true
+  })
+  ipcMain.handle('domains:delete', (_e, id: string) => {
+    // Update markdown files for quests that will be reassigned
+    const questIds = domainRepo.getQuestsByDomainId(id)
+    domainRepo.deleteDomain(id)
+    for (const q of questIds) {
+      writeQuestToMarkdown(q.id)
+    }
+    broadcastUpdate()
+    return true
+  })
+  ipcMain.handle('domains:reorder', (_e, orderedIds: string[]) => {
+    domainRepo.reorderDomains(orderedIds)
+    broadcastUpdate()
     return true
   })
 
@@ -126,6 +150,79 @@ export function registerIpcHandlers(): void {
     })
     if (result.canceled || !result.filePaths.length) return null
     const folder = result.filePaths[0]
+    saveSettings({ importFolder: folder })
+    const importResult = importFromObsidian(folder)
+    startFileWatcher(folder)
+    broadcastUpdate()
+    return { folder, ...importResult }
+  })
+
+  // Journal initialization (first-run)
+  ipcMain.handle('journal:initialize', async () => {
+    const main = getMainWindow()
+    if (!main) return null
+    const result = await dialog.showOpenDialog(main, {
+      properties: ['openDirectory', 'createDirectory'],
+      title: 'Choose a folder for your quest journal'
+    })
+    if (result.canceled || !result.filePaths.length) return null
+    const folder = result.filePaths[0]
+
+    // Create folder if it doesn't exist
+    if (!fs.existsSync(folder)) {
+      fs.mkdirSync(folder, { recursive: true })
+    }
+
+    // Create _tome_of_values.md
+    const tomePath = path.join(folder, '_tome_of_values.md')
+    if (!fs.existsSync(tomePath)) {
+      fs.writeFileSync(tomePath, `---
+type: tome_of_values
+---
+
+# Tome of Values
+
+Write anything here about your values, priorities, and what matters to you.
+AI tools can read this file to help prioritize and suggest quests.
+
+## What Matters Most
+
+
+## Current Life Priorities
+
+
+## Guiding Principles
+
+`, 'utf-8')
+    }
+
+    // Create a sample quest file
+    const samplePath = path.join(folder, 'getting-started.md')
+    if (!fs.existsSync(samplePath)) {
+      fs.writeFileSync(samplePath, `---
+domain: Personal
+active: true
+priority: 1
+---
+
+## QuestLog
+
+- ${new Date().toISOString().split('T')[0]}: Set up QuestLog and organize my first quests
+
+## Objectives
+
+- [ ] Explore the quest list and detail views
+- [ ] Create a new quest using the + Quest button
+- [ ] Try organizing quests into domains
+
+## Notes
+
+This is a sample quest to help you get started with QuestLog.
+Feel free to edit or delete this quest once you are comfortable.
+`, 'utf-8')
+    }
+
+    // Save settings and import
     saveSettings({ importFolder: folder })
     const importResult = importFromObsidian(folder)
     startFileWatcher(folder)

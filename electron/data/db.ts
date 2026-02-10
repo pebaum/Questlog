@@ -100,6 +100,14 @@ function runMigrations(db: SqlJsDatabase): void {
   db.run(`CREATE INDEX IF NOT EXISTS idx_objectives_quest ON objectives(quest_id)`)
   // Normalize old priority=50 to 0 (none)
   db.run(`UPDATE quests SET priority = 0 WHERE priority = 50`)
+
+  // Add sort_order column to domains if it doesn't exist
+  try {
+    db.run(`ALTER TABLE domains ADD COLUMN sort_order INTEGER DEFAULT 0`)
+  } catch {
+    // Column already exists
+  }
+
   saveDb()
 }
 

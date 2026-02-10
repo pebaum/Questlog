@@ -18,11 +18,14 @@ const api = {
   // Domains
   getDomains: () => ipcRenderer.invoke('domains:getAll'),
   createDomain: (name: string, color: string) => ipcRenderer.invoke('domains:create', name, color),
-  updateDomain: (id: string, name: string, color: string) => ipcRenderer.invoke('domains:update', id, name, color),
+  updateDomain: (id: string, data: { name?: string; color?: string; sort_order?: number }) => ipcRenderer.invoke('domains:update', id, data),
+  deleteDomain: (id: string) => ipcRenderer.invoke('domains:delete', id),
+  reorderDomains: (orderedIds: string[]) => ipcRenderer.invoke('domains:reorder', orderedIds),
 
   // Import
   importObsidian: (dir: string) => ipcRenderer.invoke('import:obsidian', dir),
   pickImportFolder: () => ipcRenderer.invoke('import:pickFolder'),
+  initializeJournal: () => ipcRenderer.invoke('journal:initialize'),
 
   // Settings
   getSettings: () => ipcRenderer.invoke('settings:get'),

@@ -25,6 +25,7 @@ export interface Domain {
   id: string
   name: string
   color: string
+  sort_order: number
 }
 
 export interface QuestWithObjectives extends Quest {

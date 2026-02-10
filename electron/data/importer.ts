@@ -56,7 +56,7 @@ export function importFromObsidian(questsDir: string): { imported: number; skipp
 
     let goal = ''
     let description = ''
-    const logMatch = content.match(/## Quest Log\s*\n([\s\S]*?)(?=\n## |\n*$)/)
+    const logMatch = content.match(/## (?:Quest Log|QuestLog)\s*\n([\s\S]*?)(?=\n## |\n*$)/)
     if (logMatch) {
       const logLines = logMatch[1].trim().split('\n').filter(l => l.trim())
       if (logLines.length > 0) {

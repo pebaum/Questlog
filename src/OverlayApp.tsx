@@ -1,11 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import type { QuestWithObjectives } from './types/quest'
 import OverlayCard from './components/Overlay/OverlayCard'
+import ErrorBoundary from './components/ErrorBoundary'
 import './styles/overlay.css'
-
-const PRIORITY_COLORS: Record<number, string> = {
-  3: 'var(--red)', 2: 'var(--yellow)', 1: 'var(--green)'
-}
 
 export default function OverlayApp() {
   const [quests, setQuests] = useState<QuestWithObjectives[]>([])
@@ -15,14 +12,15 @@ export default function OverlayApp() {
 
   const loadActive = useCallback(async () => {
     const active = await window.questApi.getActiveQuests()
-    // Sort by priority desc
     active.sort((a, b) => b.priority - a.priority)
     setQuests(active)
   }, [])
 
   useEffect(() => {
     loadActive()
-    const unsub = window.questApi.onQuestsUpdated(loadActive)
+    const unsub = window.questApi.onQuestsUpdated(() => {
+      loadActive()
+    })
     return unsub
   }, [loadActive])
 
@@ -47,22 +45,26 @@ export default function OverlayApp() {
   }
 
   return (
-    <div className="overlay" onMouseDown={handleMouseDown} onContextMenu={handleContextMenu}>
-      <div className="overlay-header">
-        <span className="overlay-title">Active Quests</span>
-        <button className="overlay-toggle" onClick={() => setCollapsed(!collapsed)}>
-          {collapsed ? '\u25BE' : '\u25B4'}
-        </button>
-      </div>
-      {!collapsed && (
-        <div className="overlay-body">
-          {quests.length === 0 ? (
-            <div className="overlay-empty">No active quests</div>
-          ) : (
-            quests.map(q => <OverlayCard key={q.id} quest={q} priorityColor={PRIORITY_COLORS[q.priority]} />)
-          )}
+    <ErrorBoundary>
+      <div className="overlay" onMouseDown={handleMouseDown} onContextMenu={handleContextMenu}>
+        <div className="overlay-header">
+          <span className="overlay-title">Active Quests</span>
+          <div className="overlay-header-right">
+            <button className="overlay-toggle" onClick={() => setCollapsed(!collapsed)}>
+              {collapsed ? '\u25BE' : '\u25B4'}
+            </button>
+          </div>
         </div>
-      )}
-    </div>
+        {!collapsed && (
+          <div className="overlay-body">
+            {quests.length === 0 ? (
+              <div className="overlay-empty">No active quests</div>
+            ) : (
+              quests.map(q => <OverlayCard key={q.id} quest={q} />)
+            )}
+          </div>
+        )}
+      </div>
+    </ErrorBoundary>
   )
 }

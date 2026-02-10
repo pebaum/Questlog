@@ -45,7 +45,7 @@ function DraggableQuestItem({ quest, selected, onClick, onToggleActive }: {
       <div className="quest-item-content" {...attributes} {...listeners}>
         <span className="quest-item-title">{quest.title}</span>
       </div>
-      {quest.waiting_for && <span className="quest-item-waiting" title={`Waiting: ${quest.waiting_for}`}>\u23F3</span>}
+      {quest.waiting_for && <span className="quest-item-waiting" title={`Waiting: ${quest.waiting_for}`}>{'\u23F3'}</span>}
     </div>
   )
 }
@@ -71,6 +71,8 @@ export default function QuestList() {
   const filters = useQuestStore(s => s.filters)
   const selectedQuestId = useQuestStore(s => s.selectedQuestId)
   const selectQuest = useQuestStore(s => s.selectQuest)
+  const updateDomain = useQuestStore(s => s.updateDomain)
+  const deleteDomain = useQuestStore(s => s.deleteDomain)
   const [collapsedDomains, setCollapsedDomains] = useState<Set<string>>(new Set())
   const [showNewQuest, setShowNewQuest] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -78,6 +80,9 @@ export default function QuestList() {
   const [newDomainName, setNewDomainName] = useState('')
   const [newDomainColor, setNewDomainColor] = useState('#6ea8e0')
   const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [editingDomainId, setEditingDomainId] = useState<string | null>(null)
+  const [editingDomainName, setEditingDomainName] = useState('')
+  const [confirmDeleteDomainId, setConfirmDeleteDomainId] = useState<string | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
@@ -109,16 +114,16 @@ export default function QuestList() {
     })
 
     const map = new Map<string, QuestWithObjectives[]>()
-    for (const d of domains) map.set(d.id, [])
+    const sortedDomains = [...domains].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    for (const d of sortedDomains) map.set(d.id, [])
     map.set('', [])
     for (const q of result) {
       const list = map.get(q.domain) || []
       list.push(q)
       map.set(q.domain, list)
     }
-    for (const [key, value] of map) {
-      if (value.length === 0) map.delete(key)
-    }
+    // Remove uncategorized group if empty, but keep named domains visible
+    if (map.has('') && map.get('')!.length === 0) map.delete('')
     return map
   }, [quests, domains, filters])
 
@@ -154,8 +159,7 @@ export default function QuestList() {
 
   const handleToggleActive = async (quest: QuestWithObjectives, e: React.MouseEvent) => {
     e.stopPropagation()
-    const result = await window.questApi.updateQuest(quest.id, { active: !quest.active })
-    if (result && 'error' in result) alert(result.error)
+    await window.questApi.updateQuest(quest.id, { active: !quest.active })
   }
 
   const handleDragStart = (event: DragStartEvent) => setDraggingId(event.active.id as string)
@@ -169,6 +173,27 @@ export default function QuestList() {
     const quest = quests.find(q => q.id === active.id)
     if (!quest || quest.domain === newDomainId) return
     await window.questApi.updateQuest(quest.id, { domain: newDomainId })
+  }
+
+  const handleStartRename = (domainId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const domain = domains.find(d => d.id === domainId)
+    if (!domain) return
+    setEditingDomainId(domainId)
+    setEditingDomainName(domain.name)
+  }
+
+  const handleFinishRename = async () => {
+    if (editingDomainId && editingDomainName.trim()) {
+      await updateDomain(editingDomainId, { name: editingDomainName.trim() })
+    }
+    setEditingDomainId(null)
+    setEditingDomainName('')
+  }
+
+  const handleDeleteDomain = async (domainId: string) => {
+    await deleteDomain(domainId)
+    setConfirmDeleteDomainId(null)
   }
 
   const draggingQuest = draggingId ? quests.find(q => q.id === draggingId) : null
@@ -213,12 +238,47 @@ export default function QuestList() {
         <div className="quest-list-body">
           {Array.from(grouped.entries()).map(([domainId, domainQuests]) => (
             <div key={domainId} className="quest-group">
-              <button className="quest-group-header" onClick={() => toggleDomain(domainId)}>
-                <span className="quest-group-dot" style={{ background: getDomainColor(domainId) }} />
-                <span className="quest-group-name">{getDomainName(domainId)}</span>
-                <span className="quest-group-count">{domainQuests.length}</span>
-                <span className={`quest-group-chevron ${collapsedDomains.has(domainId) ? 'collapsed' : ''}`}>{'\u25BE'}</span>
-              </button>
+              {editingDomainId === domainId ? (
+                <div className="quest-group-header quest-group-header--editing">
+                  <span className="quest-group-dot" style={{ background: getDomainColor(domainId) }} />
+                  <input
+                    className="quest-group-rename-input"
+                    value={editingDomainName}
+                    onChange={e => setEditingDomainName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleFinishRename()
+                      if (e.key === 'Escape') { setEditingDomainId(null); setEditingDomainName('') }
+                    }}
+                    onBlur={handleFinishRename}
+                    autoFocus
+                  />
+                </div>
+              ) : (
+                <div className="quest-group-header-row">
+                  <button className="quest-group-header" onClick={() => toggleDomain(domainId)}>
+                    <span className="quest-group-dot" style={{ background: getDomainColor(domainId) }} />
+                    <span className="quest-group-name">{getDomainName(domainId)}</span>
+                    <span className="quest-group-count">{domainQuests.length}</span>
+                    <span className={`quest-group-chevron ${collapsedDomains.has(domainId) ? 'collapsed' : ''}`}>{'\u25BE'}</span>
+                  </button>
+                  {domainId && (
+                    <div className="quest-group-actions">
+                      <button className="quest-group-action-btn" onClick={(e) => handleStartRename(domainId, e)} title="Rename domain">{'\u270E'}</button>
+                      <button className="quest-group-action-btn quest-group-action-btn--delete" onClick={(e) => { e.stopPropagation(); setConfirmDeleteDomainId(domainId) }} title="Delete domain">{'\u2715'}</button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {confirmDeleteDomainId === domainId && (
+                <div className="quest-group-confirm-delete">
+                  <span>Delete <strong>{getDomainName(domainId)}</strong>? Quests will be moved to Personal.</span>
+                  <div className="quest-group-confirm-actions">
+                    <button className="btn btn-danger" onClick={() => handleDeleteDomain(domainId)}>Delete</button>
+                    <button className="btn" onClick={() => setConfirmDeleteDomainId(null)}>Cancel</button>
+                  </div>
+                </div>
+              )}
 
               {!collapsedDomains.has(domainId) && (
                 <DroppableDomainGroup domainId={domainId} domainName={getDomainName(domainId)} domainColor={getDomainColor(domainId)}>
@@ -230,7 +290,16 @@ export default function QuestList() {
             </div>
           ))}
 
-          {grouped.size === 0 && <div className="quest-list-empty">No quests found</div>}
+          {grouped.size === 0 && quests.length === 0 && (
+            <div className="quest-list-empty quest-list-empty--first">
+              <div className="quest-list-empty-title">No quests yet</div>
+              <div className="quest-list-empty-desc">Create your first quest to begin your adventure</div>
+              <button className="btn btn-primary quest-list-empty-btn" onClick={() => setShowNewQuest(true)}>+ New Quest</button>
+            </div>
+          )}
+          {grouped.size === 0 && quests.length > 0 && (
+            <div className="quest-list-empty">No quests match your filters</div>
+          )}
         </div>
 
         <DragOverlay dropAnimation={null}>
