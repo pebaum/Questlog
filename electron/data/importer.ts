@@ -87,7 +87,22 @@ export function importFromObsidian(questsDir: string): { imported: number; skipp
       source_file: filePath
     })
 
-    if (fm.next_action && fm.next_action.trim()) {
+    // Parse objectives from ## Objectives section
+    const objMatch = content.match(/## Objectives\s*\n([\s\S]*?)(?=\n## |\n*$)/)
+    if (objMatch) {
+      const objLines = objMatch[1].split('\n')
+      for (const line of objLines) {
+        const match = line.match(/^-\s*\[([ xX])\]\s*(.+)/)
+        if (match) {
+          const obj = createObjective(quest.id, match[2].trim())
+          if (match[1].toLowerCase() === 'x') {
+            const db = getDb()
+            db.run('UPDATE objectives SET completed = 1 WHERE id = ?', [obj.id])
+          }
+        }
+      }
+    } else if (fm.next_action && fm.next_action.trim()) {
+      // Fallback: use next_action as an objective if no Objectives section
       createObjective(quest.id, fm.next_action.trim())
     }
 

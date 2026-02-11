@@ -29,8 +29,75 @@ function broadcastUpdate(): void {
   }
 }
 
+/** Parse objectives from markdown checkbox syntax */
+function parseObjectives(content: string): { text: string; completed: boolean }[] {
+  const objMatch = content.match(/## Objectives\s*\n([\s\S]*?)(?=\n## |\n*$)/)
+  if (!objMatch) return []
+
+  const lines = objMatch[1].split('\n')
+  const objectives: { text: string; completed: boolean }[] = []
+
+  for (const line of lines) {
+    const match = line.match(/^-\s*\[([ xX])\]\s*(.+)/)
+    if (match) {
+      objectives.push({
+        completed: match[1].toLowerCase() === 'x',
+        text: match[2].trim()
+      })
+    }
+  }
+
+  return objectives
+}
+
+/** Sync objectives from markdown into DB for a given quest */
+function syncObjectivesToDb(questId: string, markdownObjectives: { text: string; completed: boolean }[]): void {
+  const db = getDb()
+
+  // Get existing objectives
+  const stmt = db.prepare('SELECT id, text, completed, sort_order FROM objectives WHERE quest_id = ? ORDER BY sort_order ASC')
+  stmt.bind([questId])
+  const existing: { id: string; text: string; completed: number; sort_order: number }[] = []
+  while (stmt.step()) {
+    existing.push(stmt.getAsObject() as { id: string; text: string; completed: number; sort_order: number })
+  }
+  stmt.free()
+
+  // Match by text to preserve IDs where possible
+  const matched = new Set<string>()
+
+  for (let i = 0; i < markdownObjectives.length; i++) {
+    const mdObj = markdownObjectives[i]
+    const dbObj = existing.find(e => e.text === mdObj.text && !matched.has(e.id))
+
+    if (dbObj) {
+      // Update existing objective
+      matched.add(dbObj.id)
+      const newCompleted = mdObj.completed ? 1 : 0
+      if (dbObj.completed !== newCompleted || dbObj.sort_order !== i) {
+        db.run('UPDATE objectives SET completed = ?, sort_order = ? WHERE id = ?', [newCompleted, i, dbObj.id])
+      }
+    } else {
+      // New objective from markdown
+      const { v4: uuid } = require('uuid')
+      const id = uuid()
+      db.run('INSERT INTO objectives (id, quest_id, text, completed, sort_order) VALUES (?, ?, ?, ?, ?)',
+        [id, questId, mdObj.text, mdObj.completed ? 1 : 0, i])
+    }
+  }
+
+  // Delete objectives that were removed from markdown
+  for (const dbObj of existing) {
+    if (!matched.has(dbObj.id)) {
+      db.run('DELETE FROM objectives WHERE id = ?', [dbObj.id])
+    }
+  }
+}
+
 function syncFileToDb(filePath: string): void {
   if (!filePath.endsWith('.md')) return
+  // Skip the Tome of Values
+  if (path.basename(filePath).startsWith('_')) return
 
   try {
     const raw = fs.readFileSync(filePath, 'utf-8')
@@ -41,12 +108,7 @@ function syncFileToDb(filePath: string): void {
     contentHashes.set(filePath, hash)
 
     const { data, content } = matter(raw)
-    const fm = data as {
-      domain?: string
-      active?: boolean
-      waiting_for?: string
-      priority?: number
-    }
+    const fm = data as Record<string, unknown>
 
     const db = getDb()
     const title = path.basename(filePath, '.md')
@@ -58,7 +120,7 @@ function syncFileToDb(filePath: string): void {
     const row = exists ? stmt.getAsObject() as { id: string } : null
     stmt.free()
 
-    // Parse content
+    // Parse content sections
     let goal = ''
     let description = ''
     const logMatch = content.match(/## (?:Quest Log|QuestLog)\s*\n([\s\S]*?)(?=\n## |\n*$)/)
@@ -73,8 +135,11 @@ function syncFileToDb(filePath: string): void {
       description = notesMatch[1].trim()
     }
 
+    // Parse objectives from markdown
+    const objectives = parseObjectives(content)
+
     let domainId = ''
-    if (fm.domain) {
+    if (fm.domain && typeof fm.domain === 'string') {
       const domain = getOrCreateDomain(fm.domain)
       domainId = domain.id
     }
@@ -88,24 +153,37 @@ function syncFileToDb(filePath: string): void {
       fields.push('description = ?'); values.push(description)
       fields.push('domain = ?'); values.push(domainId)
       if (fm.active !== undefined) { fields.push('active = ?'); values.push(fm.active ? 1 : 0) }
-      if (fm.waiting_for !== undefined) { fields.push('waiting_for = ?'); values.push(fm.waiting_for || null) }
+      if (fm.waiting_for !== undefined) { fields.push('waiting_for = ?'); values.push((fm.waiting_for as string) || null) }
       if (fm.priority !== undefined) { fields.push('priority = ?'); values.push(fm.priority) }
       values.push(row.id)
       db.run(`UPDATE quests SET ${fields.join(', ')} WHERE id = ?`, values)
+
+      // Sync objectives
+      syncObjectivesToDb(row.id, objectives)
+
       saveDb()
     } else {
       // New file — import it
-      const { createQuest } = require('./quest-repo')
-      createQuest({
+      const { createQuest, createObjective } = require('./quest-repo')
+      const quest = createQuest({
         title,
         goal,
         description,
         domain: domainId,
         active: fm.active || false,
-        waiting_for: fm.waiting_for || null,
-        priority: fm.priority ?? 0,
+        waiting_for: (fm.waiting_for as string) || null,
+        priority: (fm.priority as number) ?? 0,
         source_file: filePath
       })
+
+      // Import objectives
+      for (const obj of objectives) {
+        const created = createObjective(quest.id, obj.text)
+        if (obj.completed) {
+          db.run('UPDATE objectives SET completed = 1 WHERE id = ?', [created.id])
+        }
+      }
+      saveDb()
     }
 
     broadcastUpdate()
