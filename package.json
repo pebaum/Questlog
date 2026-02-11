@@ -1,6 +1,6 @@
 {
   "name": "quest-log-app",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "FFXIV-inspired QuestLog for task/project management",
   "main": "./out/main/index.js",
   "scripts": {
@@ -46,10 +46,19 @@
         "to": "sql-wasm.wasm"
       }
     ],
+    "win": {
+      "target": ["nsis"],
+      "icon": null
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false
+    },
     "publish": [
       {
         "provider": "github",
-        "owner": "questlog-app",
+        "owner": "pebaum",
         "repo": "Questlog"
       }
     ]
