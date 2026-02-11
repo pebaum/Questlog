@@ -26,10 +26,10 @@ export async function initDb(): Promise<SqlJsDatabase> {
   // Use require for sql.js since it's externalized
   const initSqlJs = require('sql.js')
 
-  const wasmPath = path.join(
-    __dirname,
-    '../../node_modules/sql.js/dist/sql-wasm.wasm'
-  )
+  // In packaged app, WASM is in resources/. In dev, it's in node_modules.
+  const wasmPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'sql-wasm.wasm')
+    : path.join(__dirname, '../../node_modules/sql.js/dist/sql-wasm.wasm')
 
   const SQL = await initSqlJs({
     locateFile: () => wasmPath
